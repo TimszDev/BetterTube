@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BetterTube</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<main class="container">
+    <header>
+        <h1>BetterTube</h1>
+        <p>Train on your watched YouTube links and get similar recommendations.</p>
+        <p class="count">Trained videos: <strong>{{ trained_count }}</strong></p>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <section class="messages">
+        {% for category, message in messages %}
+        <div class="message {{ category }}">{{ message }}</div>
+        {% endfor %}
+    </section>
+    {% endif %}
+    {% endwith %}
+
+    <section class="card">
+        <h2>Train</h2>
+        <form method="post" action="{{ url_for('train') }}" class="stack">
+            <label for="youtube_url">YouTube video link</label>
+            <input
+                id="youtube_url"
+                name="youtube_url"
+                type="url"
+                placeholder="https://www.youtube.com/watch?v=..."
+                required
+            >
+            <button type="submit">train</button>
+        </form>
+        <hr>
+        <form method="post" action="{{ url_for('train_file') }}" class="stack" enctype="multipart/form-data">
+            <label for="links_file">Upload text file with YouTube links</label>
+            <input
+                id="links_file"
+                name="links_file"
+                type="file"
+                accept=".txt,text/plain"
+                required
+            >
+            <button type="submit">train file</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Suggest</h2>
+        <form method="post" action="{{ url_for('suggest') }}" class="stack">
+            <label for="suggest_count">Number of recommendations</label>
+            <select id="suggest_count" name="suggest_count">
+                {% for n in range(1, 11) %}
+                <option value="{{ n }}" {% if suggested_count == n %}selected{% endif %}>{{ n }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">suggest</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Recommendations</h2>
+        <form method="post" action="{{ url_for('clear_recommendations_route') }}" class="clear-row">
+            <label>
+                <input type="checkbox" name="clear_feedback" value="1">
+                also clear likes/dislikes
+            </label>
+            <button type="submit" class="secondary">clear recommendations</button>
+        </form>
+        {% if suggestions %}
+        <ul class="results">
+            {% for item in suggestions %}
+            <li>
+                <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                <div>Creator: {{ item.creator }}</div>
+                <div>Length: {{ item.duration_text }}</div>
+                <div>Score: {{ item.score }}</div>
+                {% if item.matched_terms %}
+                <div>Matched: {{ ", ".join(item.matched_terms) }}</div>
+                {% endif %}
+                {% set prior_feedback = feedback_map.get(item.video_id) %}
+                {% if prior_feedback == 1 %}
+                <div class="fb liked">You liked this suggestion.</div>
+                {% elif prior_feedback == -1 %}
+                <div class="fb disliked">You disliked this suggestion.</div>
+                {% endif %}
+                <form method="post" action="{{ url_for('feedback') }}" class="feedback-row">
+                    <input type="hidden" name="video_id" value="{{ item.video_id }}">
+                    <input type="hidden" name="url" value="{{ item.url }}">
+                    <input type="hidden" name="title" value="{{ item.title }}">
+                    <input type="hidden" name="creator" value="{{ item.creator }}">
+                    <input type="hidden" name="duration_seconds" value="{{ item.duration_seconds }}">
+                    <button type="submit" name="feedback" value="like" class="like">like</button>
+                    <button type="submit" name="feedback" value="dislike" class="dislike">dislike</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No suggestions yet.</p>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <h2>Training Log</h2>
+        {% if trained_videos %}
+        <table>
+            <thead>
+            <tr>
+                <th>Title</th>
+                <th>Creator</th>
+                <th>Length</th>
+                <th>Added</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in trained_videos %}
+            <tr>
+                <td><a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a></td>
+                <td>{{ item.creator }}</td>
+                <td>{{ item.duration_seconds | duration }}</td>
+                <td>{{ item.created_at }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No videos trained yet.</p>
+        {% endif %}
+    </section>
+</main>
+</body>
+</html>
